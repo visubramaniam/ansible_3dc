@@ -1,0 +1,57 @@
+# ###################################################################
+# Example :  GAD Create GAD Leg Playbook
+# ###################################################################
+- name: GAD - Create GAD Leg
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+    - ../ansible_vault_vars/gad_ansible_vars.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+    secondary_connection_info:
+      address: "{{ secondary_storage_address }}"
+      username: "{{ vault_secondary_storage_username }}"
+      password: "{{ vault_secondary_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Create GAD pairs with provisioned secondary volume ids (one per gad_volume_pairs entry)
+    ####################################################################
+    - name: Create GAD pairs with provisioned secondary volume ids
+      action: hitachivantara.vspone_block.vsp.hv_gad
+      args:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        spec:
+          copy_group_name: "{{ gad_copy_group_name }}"
+          copy_pair_name: "{{ item.copy_pair_name }}"
+          primary_volume_id: "{{ item.primary_volume_id }}"
+          provisioned_secondary_volume_id: "{{ item.provisioned_secondary_volume_id }}"
+          quorum_disk_id: "{{ gad_quorum_disk_id }}"
+          set_alua_mode: true
+    #      allocate_new_consistency_group: true
+          mirror_unit_number: 0
+          consistency_group_id: "{{ consistency_group_id }}"
+          is_consistency_group: true
+          secondary_hostgroups:
+            - name: "DC3ESX_R_B_R_HG_FA"
+              port_id: "CL1-A"
+              enable_preferred_path: true
+            - name: "DC3ESX_R_B_R_HG_FB"
+              port_id: "CL2-A"
+              enable_preferred_path: true
+      loop: "{{ gad_volume_pairs }}"
+      loop_control:
+        label: "{{ item.copy_pair_name }}"
+      register: result
+
+    - name: Debug result
+      ansible.builtin.debug:
+        var: result

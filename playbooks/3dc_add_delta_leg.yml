@@ -1,0 +1,49 @@
+    #######################################################################################
+    # Task Name : Create a HUR pair by specifying the provisioned_secondary_volume_id.
+    # Use this playbook if the secondary volume is already attached to hostgroups or iscsi
+    # targets, and there is no need to attach additional hostgroups or iscsi targets.
+    #######################################################################################
+---
+- name: Add Delta Leg
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+    - ../ansible_vault_vars/hur_delta_ansible_vars.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ secondary_storage_address }}"
+      username: "{{ vault_secondary_storage_username }}"
+      password: "{{ vault_secondary_storage_secret }}"
+    secondary_connection_info:
+      address: "{{ tertiary_storage_address }}"
+      username: "{{ vault_tertiary_storage_username }}"
+      password: "{{ vault_tertiary_storage_secret }}"
+
+  tasks:
+    - name: Create HUR pairs with provisioned_secondary_volume_id (one per hur_delta_volume_pairs entry)
+      hitachivantara.vspone_block.vsp.hv_hur:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        state: "present"
+        spec:
+          copy_group_name: "{{ hur_delta_copy_group_name }}"
+          copy_pair_name: "{{ item.copy_pair_name }}"
+          primary_volume_id: "{{ item.primary_volume_id }}"
+          primary_volume_journal_id: "{{ hur_delta_primary_volume_journal_id }}"
+          secondary_volume_journal_id: "{{ hur_delta_secondary_volume_journal_id }}"
+          mirror_unit_number: "{{ hur_delta_mirror_unit_number }}"
+          provisioned_secondary_volume_id: "{{ item.provisioned_secondary_volume_id }}"
+          enable_delta_resync: "{{ hur_delta_enable_delta_resync }}"
+          consistency_group_id: "{{ hur_delta_consistency_group_id }}"
+      loop: "{{ hur_delta_volume_pairs }}"
+      loop_control:
+        label: "{{ item.copy_pair_name }}"
+      register: result
+
+    - name: Debug result
+      ansible.builtin.debug:
+        var: result
